@@ -1,4 +1,4 @@
-#  streamlit run app.py
+# 使用: streamlit run app.py
 import streamlit as st
 import pandas as pd
 import time
@@ -29,7 +29,7 @@ if 'courses_data' not in st.session_state:
     st.session_state.courses_data = []
 
 # =============================================
-# 2. 侧边栏：资源与引擎配置 (Sidebar)
+# 2. 侧边栏：资源与引擎配置（侧边栏）
 # =============================================
 with st.sidebar:
     st.title("⚙️ 资源与算法配置")
@@ -40,7 +40,7 @@ with st.sidebar:
     # 动态配置教室
     c1, c2 = st.columns(2)
     with c1:
-        num_multi = st.number_input("多媒体教室数", value=6, min_value=1, help="R系列大教室")
+        num_multi = st.number_input("多媒体教室数", value=7, min_value=1, help="R系列大教室")
         cap_multi = st.number_input("多媒体容量", value=100)
     with c2:
         num_lab = st.number_input("机房数量", value=3, min_value=0, help="计算机实验室")
@@ -74,7 +74,7 @@ with st.sidebar:
         cp_timeout = st.slider("最大求解时间 (秒)", 10, 60, 30)
 
 # =============================================
-# 3. 主界面：数据管理 (Data Management)
+# 3. 主界面：数据管理（数据管理）
 # =============================================
 st.title("🎓 电信学院 - 智能排课仿真控制台")
 st.markdown("本系统支持 **模拟压力测试** 与 **真实数据导入**，并提供多维度算法对比分析。")
@@ -121,7 +121,7 @@ with st.container():
                 st.session_state.courses_data = real_courses
                 st.success(f"✅ 导入成功！共 {len(real_courses)} 条。")
 
-    # --- 数据预览与手动微调 (Data Editor) ---
+            # --- 数据预览与手动微调（数据编辑器） ---
     if st.session_state.courses_data:
         with st.expander(f"🔍 查看/编辑待排课程 ({len(st.session_state.courses_data)}门) - 可直接修改表格", expanded=False):
             # 转换列表为字符串以便编辑
@@ -168,7 +168,7 @@ with st.container():
             st.caption(f"📊 负载分析: 总课程 {len(st.session_state.courses_data)} | 机房需求 {lab_req} | 多媒体需求 {len(st.session_state.courses_data)-lab_req}")
 
 # =============================================
-# 4. 主界面：系统运行 (Execution)
+# 4. 主界面：系统运行（执行）
 # =============================================
 st.divider()
 st.subheader("🚀 第二步：智能排课计算")
@@ -253,7 +253,7 @@ if st.session_state.schedule_results is not None:
         st.success(f"✅ 排课完成! {msg_text}")
         
         # =============================================
-        # 5. 结果可视化 (Visualization)
+        # 5. 结果可视化（可视化）
         # =============================================
         st.markdown("### 📊 排课结果看板")
         
@@ -382,7 +382,7 @@ if st.session_state.schedule_results is not None:
             st.markdown("### 🔍 交互可视化：教室利用率与按对象查看")
             times = [f"{d}_{t}" for d in ["Mon", "Tue", "Wed", "Thu", "Fri"] for t in ["08:00", "10:00", "14:00", "16:00", "19:00"]]
             
-            # 构建可视化数据
+            # 构建可视化数据（包含行政班级信息 class_groups）
             vis_list = []
             for item in result_schedule:
                 c = item.get('course', {})
@@ -391,6 +391,7 @@ if st.session_state.schedule_results is not None:
                     'Room': item.get('room'),
                     'Teacher': c.get('teacher'),
                     'CourseName': c.get('name'),
+                    'ClassGroups': c.get('class_groups', [])
                 })
             vis_df = pd.DataFrame(vis_list)
 
@@ -413,25 +414,48 @@ if st.session_state.schedule_results is not None:
             st.pyplot(fig)
 
             st.divider()
-            
+
             # --- 交互区域 ---
             st.markdown('#### 按对象查看')
-            view_mode = st.selectbox('选择查看对象', ['按老师查看', '按教室查看'])
-            
+            view_mode = st.selectbox('选择查看对象', ['按老师查看', '按教室查看', '按行政班级查看'])
+
             if view_mode == '按老师查看':
                 teachers = sorted(set([c.get('teacher') for c in st.session_state.courses_data if c.get('teacher')]))
                 sel_t = st.selectbox('选择老师', ['全部'] + teachers)
-                
+
                 if sel_t == '全部':
                     fdf = vis_df.copy()
                 else:
                     fdf = vis_df[vis_df['Teacher'] == sel_t]
-                    
+
                 if fdf.empty:
                     st.info('无数据')
                 else:
                     st.table(fdf.pivot_table(index='Time', columns='Room', values='CourseName', aggfunc=lambda x: ' || '.join(x)).reindex(times).fillna('-'))
-            
+
+            elif view_mode == '按行政班级查看':
+                # 收集所有行政班级（兼容字符串/列表形式）
+                cls_set = set()
+                for c in st.session_state.courses_data:
+                    gs = c.get('class_groups', [])
+                    if isinstance(gs, str):
+                        gs = [g.strip() for g in gs.split(',') if g.strip()]
+                    for g in (gs or []):
+                        cls_set.add(g)
+
+                classes = sorted(cls_set)
+                sel_cls = st.selectbox('选择行政班', ['全部'] + classes)
+
+                if sel_cls == '全部':
+                    fdf = vis_df.copy()
+                else:
+                    fdf = vis_df[vis_df['ClassGroups'].apply(lambda ls: sel_cls in ls if isinstance(ls, (list, tuple)) else (sel_cls in str(ls)))]
+
+                if fdf.empty:
+                    st.info('该班级暂无排课')
+                else:
+                    st.table(fdf.pivot_table(index='Time', columns='Room', values='CourseName', aggfunc=lambda x: ' || '.join(x)).reindex(times).fillna('-'))
+
             else: # 按教室
                 room_ids = [r['id'] for r in rooms]
                 sel_r = st.selectbox('选择教室', ['全部'] + room_ids)
@@ -439,8 +463,9 @@ if st.session_state.schedule_results is not None:
                     fdf = vis_df.copy()
                 else:
                     fdf = vis_df[vis_df['Room'] == sel_r]
-                
+
                 if fdf.empty:
                     st.info('无数据')
                 else:
                     st.table(fdf.pivot_table(index='Time', columns='Room', values='CourseName', aggfunc=lambda x: ' || '.join(x)).reindex(times).fillna('-'))
+

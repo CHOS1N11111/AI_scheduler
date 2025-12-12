@@ -8,10 +8,10 @@ import collections
 # ==========================================
 def weeks_conflict(w1, w2):
     if w1 == "all" or w2 == "all": return True
-    return w1 == w2  # odd vs odd = True, odd vs even = False
+    return w1 == w2  # 单周 vs 单周 = True，单周 vs 双周 = False
 
 # ==========================================
-# 1. 贪心算法 (Greedy Baseline)
+# 1. 贪心算法（贪心基线）
 # ==========================================
 class GreedySolver:
     def __init__(self, data):
@@ -20,15 +20,15 @@ class GreedySolver:
     def solve(self):
         schedule = []
         # 修正1: 占用表的值改为列表，存储该时空下所有已占用的周次
-        # key=(time, room), val=[week_pattern_1, week_pattern_2, ...]
+        # key=(time, room)，值=[周次模式1, 周次模式2, ...]
         occupied = {} 
-        # key=(time, teacher), val=[week_pattern_1, ...]
+        # key=(time, teacher)，值=[周次模式1, ...]
         teacher_busy = {}
         # [新增] 专业/班级占用表
-        # key=(time, major), val=[week_pattern_1, ...]
+        # key=(time, major)，值=[周次模式1, ...]
         major_busy = {}
         # [新增] 追踪已分配的课程（用于连堂检查）
-        # key=link_id, val=[course_obj1, course_obj2, ...]
+        # key=link_id，值=[课程对象1, 课程对象2, ...]
         linked_courses = collections.defaultdict(list)
 
         # 策略：按人数从大到小排序，先排难排的
@@ -57,8 +57,8 @@ class GreedySolver:
                     if t in blocked_hours:
                         continue
                     
-                    # 4. 资源冲突 (时间+空间+周次)
-                    # 修正2: 检查教室占用 (遍历列表)
+                    # 4. 资源冲突（时间+空间+周次）
+                    # 修正2: 检查教室占用（遍历列表）
                     is_room_conflict = False
                     if (t, r["id"]) in occupied:
                         for existing_week in occupied[(t, r["id"])]:
@@ -67,7 +67,7 @@ class GreedySolver:
                                 break
                     if is_room_conflict: continue
                     
-                    # 修正3: 检查老师占用 (遍历列表)
+                    # 修正3: 检查老师占用（遍历列表）
                     is_teacher_conflict = False
                     if (t, course["teacher"]) in teacher_busy:
                         for existing_week in teacher_busy[(t, course["teacher"])]:
@@ -132,7 +132,7 @@ class GreedySolver:
                         "course": course, "time": t, "room": r["id"]
                     })
                     
-                    # 修正4: 更新占用表 (Append 模式)
+                    # 修正4: 更新占用表（追加模式）
                     if (t, r["id"]) not in occupied: occupied[(t, r["id"])] = []
                     occupied[(t, r["id"])].append(course["weeks"])
                     
@@ -148,10 +148,10 @@ class GreedySolver:
                     assigned = True
                     break
         
-        return schedule, "Greedy Completed (May have unscheduled courses)"
+        return schedule, "贪心算法完成（可能有未排课程）"
 
 # ==========================================
-# 2. 遗传算法 (Genetic Algorithm)
+# 2. 遗传算法（进化算法）
 # ==========================================
 class GASolver:
     def __init__(self, data, weights):
@@ -174,11 +174,11 @@ class GASolver:
         soft_pen = 0
         
         # 记录占用用于冲突检测
-        # key: (time, room) -> list of weeks
+        # key=(time, room) -> 周次列表
         r_occ = {}
-        # key: (time, teacher) -> list of weeks
+        # key=(time, teacher)：对应的周次列表
         t_occ = {}
-        # [新增] key: (time, major) -> list of weeks
+        # [新增] key=(time, major)：对应的周次列表
         major_occ = {}
 
         for gene in individual:
@@ -191,7 +191,7 @@ class GASolver:
             # [软] 教室容量
             if c["size"] > self.room_map[r_id]["cap"]: soft_pen += 1
 
-            # [硬] 教室时间冲突 (考虑单双周)
+            # [硬] 教室时间冲突（考虑单双周）
             key_r = (t, r_id)
             if key_r not in r_occ: r_occ[key_r] = []
             for existing_week in r_occ[key_r]:
@@ -265,7 +265,7 @@ class GASolver:
             if callback: callback(g, best_cost)
             if best_cost == 0: break # 完美解
 
-            # 进化下一代 (简化版：精英 + 随机变异)
+            # 进化下一代（简化版：精英 + 随机变异）
             new_pop = [x[1] for x in scored[:int(pop_size*0.2)]] # 保留前20%
             while len(new_pop) < pop_size:
                 parent = random.choice(scored[:int(pop_size*0.5)])[1]
@@ -281,7 +281,7 @@ class GASolver:
         return best_ind, best_hist
 
 # ==========================================
-# 3. Google OR-Tools (CP-SAT) - 数学建模
+# 3. Google OR-Tools（CP-SAT）- 数学建模
 # ==========================================
 class CPSATSolver:
     def __init__(self, data):
@@ -290,7 +290,7 @@ class CPSATSolver:
         self.rooms = data["rooms"]
         self.courses = data["courses"]
         
-        # 预计算：每门课允许使用的教室列表 (改进点2：预过滤)
+        # 预计算：每门课允许使用的教室列表（改进点2：预过滤）
         # 这就是稀疏建模的核心：只记录可行的组合
         self.possible_rooms = {} 
         for c_idx, c in enumerate(self.courses):
@@ -306,11 +306,11 @@ class CPSATSolver:
     def solve(self, time_limit=30):
         model = cp_model.CpModel()
         
-        # --- 1. 定义变量 (稀疏矩阵) ---
+        # --- 1. 定义变量（稀疏矩阵）---
         # x[(c, t, r)] = 1 表示课程 c 在时间 t 在教室 r 上课
         x = {}
         
-        # y[c] = 1 表示课程 c 被成功安排了 (改进点1：允许不排课)
+        # y[c] = 1 表示课程 c 被成功安排了（改进点1：允许不排课）
         is_scheduled = {} 
 
         for c_idx in range(len(self.courses)):
@@ -344,9 +344,9 @@ class CPSATSolver:
                 # 所有时间都被禁排，该课程无法排课
                 model.Add(is_scheduled[c_idx] == 0)
 
-        # --- 2. 硬约束 ---
+        # --- 2. 硬约束（Hard Constraints）---
         
-        # (A) 课程安排约束：
+        # （A）课程安排约束：
         # 如果 y[c]=1，则必须且只能排一次；如果 y[c]=0，则一次都不能排
         for c_idx in range(len(self.courses)):
             # 收集这门课所有可能的 (t, r) 组合变量
@@ -363,7 +363,7 @@ class CPSATSolver:
                 # 如果这门课连一个能用的教室都找不到（比如容量都太小），那它肯定排不了
                 model.Add(is_scheduled[c_idx] == 0)
 
-        # (B) 教室冲突：处理单双周复用逻辑
+        # （B）教室冲突：处理单双周复用逻辑
         # 逻辑：
         # 1. sum(all_week_vars) + sum(odd_week_vars) <= 1
         # 2. sum(all_week_vars) + sum(even_week_vars) <= 1
@@ -391,7 +391,7 @@ class CPSATSolver:
                 
                 # 如果有变量，添加约束
                 if vars_all or vars_odd or vars_even:
-                    # 绝对硬约束：同一时间同一地点，总课程数不能超过2 (防止 odd+odd 这种情况)
+                    # 绝对硬约束：同一时间同一地点，总课程数不能超过2（防止 odd+odd 这种情况）
                     # 其实下面的逻辑已经隐含了，但为了求解器加速可以加上
                     model.Add(sum(vars_all + vars_odd + vars_even) <= 2)
                     
@@ -399,7 +399,7 @@ class CPSATSolver:
                     model.Add(sum(vars_all) + sum(vars_odd) <= 1)
                     model.Add(sum(vars_all) + sum(vars_even) <= 1)
 
-        # (B+) [新增] 班级/专业不冲突约束（需求6&7）
+        # （B+）[新增] 班级/专业不冲突约束（需求6&7）
         # 同一专业的学生在同一时间只能上一门课
         major_to_courses = collections.defaultdict(list)
         for c_idx, c in enumerate(self.courses):
@@ -423,7 +423,7 @@ class CPSATSolver:
                 if major_vars:
                     model.Add(sum(major_vars) <= 1)
 
-        # (C) 老师冲突：处理单双周复用逻辑 (同上)
+        # （C）老师冲突：处理单双周复用逻辑（同上）
         # 允许同一个老师在同一时间片，分别在单周和双周上课
         teacher_map = collections.defaultdict(list)
         for c_idx, c in enumerate(self.courses):
@@ -451,7 +451,7 @@ class CPSATSolver:
 
                     model.Add(sum(t_vars_all) + sum(t_vars_even) <= 1)
         
-        # (C+) [新增] 连堂约束（需求9）
+        # （C+）[新增] 连堂约束（需求9）
         # 相同 link_id 的课程必须连续排课（同教室，且时间为 t 和 t+1）
         linked_groups = collections.defaultdict(list)
         for c_idx, c in enumerate(self.courses):
@@ -517,20 +517,111 @@ class CPSATSolver:
                                 model.Add(var_next == 1).OnlyEnforceIf(var_curr)
                                 model.Add(var_curr == 1).OnlyEnforceIf(var_next)
 
-        # (D) 单双周互斥 (高级约束)
+        # （D）单双周互斥（高级约束）
         # 逻辑：如果两门课周次冲突，且都在同一时间，则不能同时发生
         # 这是一个稍微复杂的约束，为了性能，我们简化处理：
-        # 如果两门课周次不兼容，则它们在 (同一时间) 的变量和不能大于1（不管在哪个教室）
+        # 如果两门课周次不兼容，则它们在（同一时间）的变量和不能大于1（不管在哪个教室）
         # 但上面的 (C) 和 (B) 已经处理了大部分冲突。
         # 这里重点是：同一个老师，能不能同时带两个班（一个单周，一个双周）？通常是可以的。
         # 同一个教室，能不能同时排两个班（一个单周，一个双周）？是可以的。
 
-        # --- 3. 目标函数 (改进点1：最大化排课数量) ---
-        # 惩罚 = 未排课程数 * 10000
-        # 我们希望 maximize sum(is_scheduled)
-        model.Maximize(sum(is_scheduled.values()))
+        # --- 3. 目标函数（改进点1：最大化排课数量）---
+        # --- 3. 目标函数（改进点1：最大化排课数量 + 软约束惩罚）---
+        # 软约束包括：午休保护、紧凑排课（减少同日空堂）、分散压力（减少每日课时方差）
+        # 权重设定：确保排课数量优先，然后尽量减少惩罚
+        BIG_W = 10000
 
-        # --- 4. 求解 ---
+        # --- 专业-时间占用指示符 y_major_t ---
+        # y_major_time[(major, t_idx)] == 1 表示该专业在该时间段有课程
+        y_major_time = {}
+        majors_list = list(major_to_courses.keys())
+        for major in majors_list:
+            for t_idx in range(len(self.times)):
+                # 收集该专业在该时间的所有变量
+                maj_vars = []
+                for c_idx in major_to_courses[major]:
+                    for r_idx in self.possible_rooms[c_idx]:
+                        v = x.get((c_idx, t_idx, r_idx))
+                        if v is not None:
+                            maj_vars.append(v)
+                if maj_vars:
+                    y = model.NewBoolVar(f'y_{major}_{t_idx}')
+                    y_major_time[(major, t_idx)] = y
+                    # 关联 y 与 maj_vars: sum(maj_vars) >= y 且 sum(maj_vars) <= len* y
+                    model.Add(sum(maj_vars) >= y)
+                    model.Add(sum(maj_vars) <= len(maj_vars) * y)
+
+        # --- 紧凑性惩罚 ---
+        # 对于每个专业和每一天，对非相邻的占用时段进行惩罚。
+        compact_pen_vars = []
+        compact_pen_weight = 5
+        slots_per_day = 5  # 假设每天5个时间段（根据元数据）
+        for major in majors_list:
+            for day in range((len(self.times) // slots_per_day)):
+                # 考虑同一天内间隔 > 1 的时间对
+                base = day * slots_per_day
+                for i in range(slots_per_day):
+                    t_i = base + i
+                    yi = y_major_time.get((major, t_i))
+                    if yi is None: continue
+                    for j in range(i+1, slots_per_day):
+                        t_j = base + j
+                        yj = y_major_time.get((major, t_j))
+                        if yj is None: continue
+                        gap = j - i
+                        if gap > 1:
+                            b = model.NewBoolVar(f'gap_{major}_{t_i}_{t_j}')
+                            compact_pen_vars.append((b, gap))
+                            # b == yi AND yj 线性化
+                            model.Add(b <= yi)
+                            model.Add(b <= yj)
+                            model.Add(b >= yi + yj - 1)
+
+        # --- 分散惩罚（最小化每日课时方差的近似）---
+        # 对于每个专业，计算 daily_hours[d] = sum y_major_time[major, t in day]
+        spread_pen_vars = []
+        spread_pen_weight = 2
+        for major in majors_list:
+            # 构建每日课时变量
+            daily_hours = []
+            for day in range((len(self.times) // slots_per_day)):
+                dh = model.NewIntVar(0, slots_per_day, f'dh_{major}_{day}')
+                daily_hours.append(dh)
+                # 每天各时段的 y 值之和等于该天的课时数
+                day_vars = []
+                base = day * slots_per_day
+                for i in range(slots_per_day):
+                    y = y_major_time.get((major, base + i))
+                    if y is not None:
+                        day_vars.append(y)
+                if day_vars:
+                    model.Add(sum(day_vars) == dh)
+                else:
+                    model.Add(dh == 0)
+
+            # 对各天之间的绝对差进行惩罚
+            for d1 in range(len(daily_hours)):
+                for d2 in range(d1+1, len(daily_hours)):
+                    diff = model.NewIntVar(0, slots_per_day, f'diff_{major}_{d1}_{d2}')
+                    spread_pen_vars.append(diff)
+                    # diff >= dh1 - dh2 且 diff >= dh2 - dh1
+                    model.Add(daily_hours[d1] - daily_hours[d2] <= diff)
+                    model.Add(daily_hours[d2] - daily_hours[d1] <= diff)
+
+        # --- 组合惩罚线性表达式 ---
+        # lunch_pen = lunch_pen_weight * sum(lunch_pen_vars)
+        # compact_pen = compact_pen_weight * sum(b * gap)
+        # spread_pen = spread_pen_weight * sum(diff)
+        compact_term = sum([b * gap for (b, gap) in compact_pen_vars]) if compact_pen_vars else 0
+        spread_term = sum(spread_pen_vars) if spread_pen_vars else 0
+
+        # 目标：最大化 BIG_W * 排课数量 - (lunch_term*权重 + compact_term*权重 + spread_term*权重)
+        scheduled_sum = sum(is_scheduled.values())
+        penalty_expr =  compact_pen_weight * compact_term + spread_pen_weight * spread_term
+        # 注意：CP-SAT 要求目标为整数/布尔变量的线性表达式
+        model.Maximize(BIG_W * scheduled_sum - penalty_expr)
+
+        # --- 4. 求解（Solve）---
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = time_limit
         status = solver.Solve(model)
@@ -541,7 +632,7 @@ class CPSATSolver:
             
             for c_idx in range(len(self.courses)):
                 if solver.Value(is_scheduled[c_idx]) == 1:
-                    # 只有被安排了才去除非找时间地点
+                    # 只有被安排了才能找时间地点
                     assigned = False
                     for r_idx in self.possible_rooms[c_idx]:
                         for t_idx in range(len(self.times)):
@@ -561,4 +652,4 @@ class CPSATSolver:
             status_text = f"Solved ({solver.StatusName(status)}). Unscheduled: {unscheduled_count}"
             return res, status_text
         else:
-            return [], "No Solution Found (Even with soft constraints)"
+            return [], "未找到解（即使考虑软约束）"
