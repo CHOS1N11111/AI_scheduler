@@ -29,7 +29,7 @@ if 'courses_data' not in st.session_state:
     st.session_state.courses_data = []
 
 # =============================================
-# 2. 侧边栏：资源与引擎配置（侧边栏）
+# 2. 侧边栏：资源与引擎配置 (Sidebar)
 # =============================================
 with st.sidebar:
     st.title("⚙️ 资源与算法配置")
@@ -41,7 +41,7 @@ with st.sidebar:
     c1, c2 = st.columns(2)
     with c1:
         num_multi = st.number_input("多媒体教室数", value=7, min_value=1, help="R系列大教室")
-        cap_multi = st.number_input("多媒体容量", value=100)
+        cap_multi = st.number_input("多媒体容量", value=110)
     with c2:
         num_lab = st.number_input("机房数量", value=3, min_value=0, help="计算机实验室")
         cap_lab = st.number_input("机房容量", value=60)
@@ -59,7 +59,7 @@ with st.sidebar:
     
     st.markdown("### 🧠 求解引擎选择")
     solver_mode = st.selectbox("核心算法", 
-        ["OR-Tools CP-SAT (精确建模)", "Genetic Algorithm (进化算法)", "Greedy (贪心基线)"],
+        ["Greedy (贪心算法)", "Genetic Algorithm (进化算法)", "OR-Tools CP-SAT (精确建模)"],
         index=0
     )
     
@@ -74,7 +74,7 @@ with st.sidebar:
         cp_timeout = st.slider("最大求解时间 (秒)", 10, 60, 30)
 
 # =============================================
-# 3. 主界面：数据管理（数据管理）
+# 3. 主界面：数据管理 (Data Management)
 # =============================================
 st.title("🎓 电信学院 - 智能排课仿真控制台")
 st.markdown("本系统支持 **模拟压力测试** 与 **真实数据导入**，并提供多维度算法对比分析。")
@@ -121,7 +121,7 @@ with st.container():
                 st.session_state.courses_data = real_courses
                 st.success(f"✅ 导入成功！共 {len(real_courses)} 条。")
 
-            # --- 数据预览与手动微调（数据编辑器） ---
+    # --- 数据预览与手动微调 (Data Editor) ---
     if st.session_state.courses_data:
         with st.expander(f"🔍 查看/编辑待排课程 ({len(st.session_state.courses_data)}门) - 可直接修改表格", expanded=False):
             # 转换列表为字符串以便编辑
@@ -168,7 +168,7 @@ with st.container():
             st.caption(f"📊 负载分析: 总课程 {len(st.session_state.courses_data)} | 机房需求 {lab_req} | 多媒体需求 {len(st.session_state.courses_data)-lab_req}")
 
 # =============================================
-# 4. 主界面：系统运行（执行）
+# 4. 主界面：系统运行 (Execution)
 # =============================================
 st.divider()
 st.subheader("🚀 第二步：智能排课计算")
@@ -253,7 +253,7 @@ if st.session_state.schedule_results is not None:
         st.success(f"✅ 排课完成! {msg_text}")
         
         # =============================================
-        # 5. 结果可视化（可视化）
+        # 5. 结果可视化 (Visualization)
         # =============================================
         st.markdown("### 📊 排课结果看板")
         
@@ -380,8 +380,12 @@ if st.session_state.schedule_results is not None:
         # >>> Tab 3: 交互可视化 <<<
         with tab_visual:
             st.markdown("### 🔍 交互可视化：教室利用率与按对象查看")
-            times = [f"{d}_{t}" for d in ["Mon", "Tue", "Wed", "Thu", "Fri"] for t in ["08:00", "10:00", "14:00", "16:00", "19:00"]]
+            #times = [f"{d}_{t}" for d in ["Mon", "Tue", "Wed", "Thu", "Fri"] for t in ["08:00", "10:00", "14:00", "16:00", "19:00"]]
             
+            # 定义天和每天的时段数
+            days_order = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+            slots_per_day = 5  # 每天5节课 (08:00, 10:00, 14:00, 16:00, 19:00)
+
             # 构建可视化数据（包含行政班级信息 class_groups）
             vis_list = []
             for item in result_schedule:
@@ -395,22 +399,40 @@ if st.session_state.schedule_results is not None:
                 })
             vis_df = pd.DataFrame(vis_list)
 
-            # 热力图部分
-            occ_df = pd.DataFrame(0, index=[r['id'] for r in rooms], columns=times)
+            # 初始化 DataFrame: 行=教室, 列=周一到周五, 值=0.0
+            daily_util_df = pd.DataFrame(0.0, index=[r['id'] for r in rooms], columns=days_order)
+
             if not vis_df.empty:
                 for _, row in vis_df.iterrows():
-                    t = row['Time']
-                    r = row['Room']
-                    if r in occ_df.index and t in occ_df.columns:
-                        occ_df.at[r, t] += 1
+                    t_str = row['Time']      # e.g. "Mon_08:00"
+                    r_id = row['Room']       # e.g. "R101"
+                    
+                    # 提取“天” (Mon)
+                    day_part = t_str.split('_')[0]
+                    
+                    if r_id in daily_util_df.index and day_part in daily_util_df.columns:
+                        daily_util_df.at[r_id, day_part] += 1
             
-            fig, ax = plt.subplots(figsize=(10, len(rooms)*0.5))
-            im = ax.imshow(occ_df.values, aspect='auto', cmap='Reds')
-            ax.set_xticks(range(len(times)))
-            ax.set_xticklabels(times, rotation=90)
-            ax.set_yticks(range(len(occ_df.index)))
-            ax.set_yticklabels(occ_df.index)
-            plt.colorbar(im, ax=ax)
+            # 将“课时数”转换为“利用率” (课时数 / 5)
+            daily_util_df = daily_util_df / slots_per_day
+
+            # --- 绘制热力图 ---
+            # 动态调整图表高度
+            fig_h = max(4, len(rooms) * 0.6)
+            fig, ax = plt.subplots(figsize=(10, fig_h))
+            
+            # 绘制热力图 (使用 YlGnBu 配色，0-1 范围)
+            im = ax.imshow(daily_util_df.values, aspect='auto', cmap='YlGnBu', vmin=0, vmax=1)
+            
+            # 设置坐标轴
+            ax.set_xticks(range(len(days_order)))
+            ax.set_xticklabels(days_order, fontsize=11, fontweight='bold')
+            ax.set_yticks(range(len(daily_util_df.index)))
+            ax.set_yticklabels(daily_util_df.index, fontsize=10)
+            
+
+            ax.set_title("教室每日资源利用率 (Daily Utilization Rate)", fontsize=13, pad=15)
+            plt.colorbar(im, ax=ax, label='利用率 (1.0 = 满负荷)')
             st.pyplot(fig)
 
             st.divider()

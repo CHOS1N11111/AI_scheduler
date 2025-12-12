@@ -56,9 +56,16 @@ def generate_mock_data(
         c_name = f"{base_name}_{i+1}"
         
         # --- D. 随机分配适用班级 (新增) ---
-        # 1-2个班合上
-        num_classes = 1 if random.random() > 0.2 else 2
-        assigned_majors = random.sample(all_majors, num_classes)
+        # 0.6 概率 1 个班，0.2 概率 2 个班，0.2 概率 3 个班
+        r = random.random()
+        if r < 0.6:
+            num_classes = 1
+        elif r < 0.8:
+            num_classes = 2
+        else:
+            num_classes = 3
+        # 防护：确保不超过可用专业数
+        assigned_majors = random.sample(all_majors, min(num_classes, len(all_majors)))
         
         # --- E. 连堂课逻辑 (新增) ---
         # 5% 概率是连堂课
