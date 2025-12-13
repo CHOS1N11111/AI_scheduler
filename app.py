@@ -8,6 +8,7 @@ import pandas as pd
 import time
 import matplotlib.pyplot as plt
 import matplotlib
+import plotly.express as px
 
 # 配置 matplotlib 字体，支持中文显示
 matplotlib.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei']
@@ -450,19 +451,33 @@ if st.session_state.schedule_results is not None:
             fig_h = max(4, len(rooms) * 0.6)
             fig, ax = plt.subplots(figsize=(10, fig_h))
             
-            # 绘制热力图 (使用 YlGnBu 配色，0-1 范围)
-            im = ax.imshow(daily_util_df.values, aspect='auto', cmap='YlGnBu', vmin=0, vmax=1)
-            
-            # 设置坐标轴
-            ax.set_xticks(range(len(days_order)))
-            ax.set_xticklabels(days_order, fontsize=11, fontweight='bold')
-            ax.set_yticks(range(len(daily_util_df.index)))
-            ax.set_yticklabels(daily_util_df.index, fontsize=10)
-            
+            # --- 绘制热力图 (新版 Plotly 交互式) ---
+            # 使用 Plotly Express 绘制交互式热力图
+            fig = px.imshow(
+                daily_util_df,
+                labels=dict(x="星期", y="教室 ID", color="利用率 (0-1)"),
+                x=days_order,
+                y=daily_util_df.index,
+                color_continuous_scale="YlGnBu",  # 配色方案，可选 'Viridis', 'Blues' 等
+                title="交互式教室资源利用率热力图 (鼠标悬停查看详情)",
+                zmin=0, 
+                zmax=1,  # 固定颜色范围 0-1
+                aspect="auto"  # 自动调整宽高比
+            )
 
-            ax.set_title("教室每日资源利用率 (Daily Utilization Rate)", fontsize=13, pad=15)
-            plt.colorbar(im, ax=ax, label='利用率 (1.0 = 满负荷)')
-            st.pyplot(fig)
+            # 优化布局细节
+            fig.update_layout(
+                title_font_size=16,
+                xaxis_title=None, # 隐藏X轴标题"星期"，因为标签已经很明显
+                yaxis_title=None,
+                height=max(400, len(rooms) * 40) # 动态高度：根据教室数量自动变长
+            )
+            
+            # 将 X 轴标签移到顶部 (可选，如果不喜欢可以注释掉这一行)
+            fig.update_xaxes(side="top")
+
+            # 在 Streamlit 中展示
+            st.plotly_chart(fig, use_container_width=True)
 
             st.divider()
 
