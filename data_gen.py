@@ -1,3 +1,7 @@
+# ==========================================
+# 模拟数据生成模块
+# 功能：根据参数动态生成虚拟的课程数据用于测试和演示
+# ==========================================
 import random
 
 def generate_mock_data(
@@ -31,32 +35,33 @@ def generate_mock_data(
     # key: teacher_name, val: list of blocked times ["Mon_08:00", ...]
     teacher_blocks = {}
     
+    # 第二步：逐个生成课程
     for i in range(num_courses):
-        # --- A. 决定课程类型 (Lab vs Multimedia) ---
+        # --- A. 决定课程类型 (Lab 实验课 vs Multimedia 理论课) ---
         if random.random() < prob_lab:
-            # 生成实验课
+            # 生成实验课：需要专门的机房
             c_type = "lab"
             base_name = random.choice(lab_names)
         else:
-            # 生成理论课
+            # 生成理论课：可以在多媒体教室上课
             c_type = "multimedia"
             base_name = random.choice(lecture_names)
             
-        # --- B. 决定周次模式 (All vs Odd/Even) ---
+        # --- B. 决定周次模式 (All 全周 vs Odd 单周 vs Even 双周) ---
+        # 单双周课程可以在同一时间和地点与其他课程复用资源
         week_mode = "all"
         if random.random() < prob_odd_even:
             week_mode = random.choice(["odd", "even"])
             
-        # --- C. 决定其他属性 ---
-        # 实验课通常人少一点，大课人多一点
-
+        # --- C. 决定课程的其他属性 ---
+        # 实验课通常人数较少，理论课人数较多
         size = random.randint(20, 60) if c_type == "lab" else random.randint(40, 110)
         
-        # 拼接名字
+        # 拼接课程名字（加上序号以区分）
         c_name = f"{base_name}_{i+1}"
         
-        # --- D. 随机分配适用班级 (新增) ---
-        # 0.6 概率 1 个班，0.2 概率 2 个班，0.2 概率 3 个班
+        # --- D. 随机分配该课程适用的班级（行政班级不冲突约束） ---
+        # 随机决定该课程有多少个班级需要参加（0.6概率1班，0.2概率2班，0.2概率3班）
         r = random.random()
         if r < 0.6:
             num_classes = 1
@@ -64,34 +69,37 @@ def generate_mock_data(
             num_classes = 2
         else:
             num_classes = 3
-        # 防护：确保不超过可用专业数
+        # 防护：确保随机数不超过可用专业数
         assigned_majors = random.sample(all_majors, min(num_classes, len(all_majors)))
         
-        # --- E. 连堂课逻辑 (新增) ---
-        # 5% 概率是连堂课
+        # --- E. 连堂课逻辑（需要连续排课的课程对） ---
+        # 5% 概率该课程是连堂课（需要和另一门课连续排课）
         link_id = None
         if random.random() < 0.05:
-            link_id = f"Link_{i}"
+            link_id = f"Link_{i}"  # 相同 link_id 的课程必须连在一起
         
-        # --- F. 该课程教师的禁排时间 (新增) ---
+        # --- F. 该课程教师的禁排时间（教师不可用时间段） ---
         blocked_hours = []
-        # 可选：随机生成该课程的一些禁排时间
-        if random.random() < 0.3:  # 30% 的课有禁排时间
-            num_blocked = random.randint(1, 3)
+        # 30% 的课有禁排时间
+        if random.random() < 0.3:  
+            num_blocked = random.randint(1, 3)  # 随机选择1-3个禁排时间
             blocked_hours = random.sample(times, num_blocked)
         
+        # 组装课程对象
         courses.append({
-            "id": f"sim_{i}",
+            "id": f"sim_{i}",  # 添加 "sim_" 前缀表示这是模拟数据
             "name": c_name,
             "teacher": random.choice(teachers),
             "size": size,
             "type": c_type,
             "weeks": week_mode,
-            "class_groups": assigned_majors,      # 需求2: 适用班级列表
-            "link_id": link_id,                   # 需求3: 连堂标记
-            "blocked_hours": blocked_hours        # 需求4: 该课程老师的禁排时间
+            "class_groups": assigned_majors,      # 该课程涉及的班级列表
+            "link_id": link_id,                   # 连堂标记
+            "blocked_hours": blocked_hours        # 教师禁排时间列表
         })
-    # 生成教师忙碌时间约束 (新增)
+    
+    # 第三步：生成教师的全局禁排时间约束
+    # 某些教师在特定时间段可能不可用（如定期会议、其他教学任务等）
     for teacher in teachers:
         # 30% 的教师有某些禁排时间
         if random.random() < 0.3:

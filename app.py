@@ -1,52 +1,62 @@
 # 使用: streamlit run app.py
+# ==========================================
+# AI 智能排课系统 - 主程序入口
+# 功能：提供Web UI界面，支持模拟和真实数据排课
+# ==========================================
 import streamlit as st
 import pandas as pd
 import time
 import matplotlib.pyplot as plt
 import matplotlib
 
-
+# 配置 matplotlib 字体，支持中文显示
 matplotlib.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei']
 matplotlib.rcParams['axes.unicode_minus'] = False
 
 # 引入自定义模块
-from data_adapter import load_real_data, generate_empty_template
-from data_gen import generate_mock_data
-from solvers import GreedySolver, GASolver, CPSATSolver
+from data_adapter import load_real_data, generate_empty_template  # 数据导入和模板生成
+from data_gen import generate_mock_data  # 模拟数据生成
+from solvers import GreedySolver, GASolver, CPSATSolver  # 三种排课算法求解器
 
 # =============================================
 # 1. 页面全局配置
 # =============================================
+# 设置 Streamlit 页面标题、布局、图标等
 st.set_page_config(
     page_title="AI 智能排课控制台", 
-    layout="wide", 
+    layout="wide",  # 宽布局，充分利用屏幕
     page_icon="🎓",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded"  # 侧边栏默认展开
 )
 
 # 初始化 Session State (防止刷新丢失数据)
+# Streamlit 在每次交互时重新运行脚本，Session State 用于保持状态
 if 'courses_data' not in st.session_state:
-    st.session_state.courses_data = []
+    st.session_state.courses_data = []  # 存储待排课程数据
 
 # =============================================
 # 2. 侧边栏：资源与引擎配置 (Sidebar)
 # =============================================
+# 侧边栏用于配置教室资源和选择排课算法
 with st.sidebar:
     st.title("⚙️ 资源与算法配置")
     
+    # 教室资源配置部分
     st.markdown("### 🏫 教室资源池")
     st.info("在此模拟教务处的硬件资源限制")
     
-    # 动态配置教室
+    # 动态配置两种教室：多媒体教室和机房
     c1, c2 = st.columns(2)
     with c1:
+        # 多媒体教室配置（用于普通理论课）
         num_multi = st.number_input("多媒体教室数", value=7, min_value=1, help="R系列大教室")
-        cap_multi = st.number_input("多媒体容量", value=110)
+        cap_multi = st.number_input("多媒体容量", value=120)
     with c2:
+        # 机房配置（用于实验课程）
         num_lab = st.number_input("机房数量", value=3, min_value=0, help="计算机实验室")
         cap_lab = st.number_input("机房容量", value=60)
         
-    # 构建教室数据结构
+    # 构建教室数据结构，包含ID、容量和类型信息
     rooms = []
     for i in range(num_multi):
         rooms.append({"id": f"R{101+i}", "cap": cap_multi, "type": "multimedia"})
@@ -57,21 +67,22 @@ with st.sidebar:
     
     st.divider()
     
+    # 排课算法选择部分
     st.markdown("### 🧠 求解引擎选择")
     solver_mode = st.selectbox("核心算法", 
         ["Greedy (贪心算法)", "Genetic Algorithm (进化算法)", "OR-Tools CP-SAT (精确建模)"],
-        index=0
+        index=0  # 默认选择贪心算法
     )
     
-    # 根据选择显示不同的算法参数
+    # 根据选择的算法显示对应的参数配置
     if "Genetic" in solver_mode:
         st.markdown("#### 🧬 进化参数")
-        ga_pop = st.slider("种群大小 (Population)", 20, 200, 50)
-        ga_gen = st.slider("进化代数 (Generations)", 50, 500, 100)
-        w_hard = st.number_input("硬约束权重", value=1000)
+        ga_pop = st.slider("种群大小 (Population)", 20, 200, 50)  # 遗传算法种群大小
+        ga_gen = st.slider("进化代数 (Generations)", 50, 500, 100)  # 进化迭代次数
+        w_hard = st.number_input("硬约束权重", value=1000)  # 硬约束违反的惩罚权重
     elif "OR-Tools" in solver_mode:
         st.markdown("#### 🤖 求解参数")
-        cp_timeout = st.slider("最大求解时间 (秒)", 10, 60, 30)
+        cp_timeout = st.slider("最大求解时间 (秒)", 10, 60, 30)  # CP-SAT 求解器的时间限制
 
 # =============================================
 # 3. 主界面：数据管理 (Data Management)
@@ -187,6 +198,11 @@ if 'schedule_history' not in st.session_state:
 
 # --- 修改点 2: 按钮只负责计算并存状态 ---
 if start_btn:
+    #先清空
+    st.session_state.schedule_results = None
+    st.session_state.schedule_msg = ""
+    st.session_state.schedule_history = []
+
     if not st.session_state.courses_data:
         st.error("❌ 请先在上方生成或导入数据！")
     else:
@@ -214,10 +230,22 @@ if start_btn:
                 def ga_callback(g, c): 
                     progress_bar.progress((g+1)/ga_gen)
                     status_txt.text(f"🧬 进化中... Generation {g+1}/{ga_gen} | Conflict Cost: {c:.2f}")
-                
+
                 solver = GASolver(problem_data, {"hard": w_hard, "soft": 10})
-                res, hist = solver.run(ga_pop, ga_gen, ga_callback)
-                msg = f"进化完成 (Final Cost: {hist[-1]})"
+                try:
+                    res, hist = solver.run(ga_pop, ga_gen, ga_callback)
+                    # 保护性处理：避免 hist 为空导致索引错误
+                    msg = f"进化完成 (Final Cost: {hist[-1]})" if hist else "进化完成 (无收敛数据)"
+                finally:
+                    # 清理进度 UI 元素，避免残留
+                    try:
+                        progress_bar.empty()
+                    except Exception:
+                        pass
+                    try:
+                        status_txt.empty()
+                    except Exception:
+                        pass
                 
             elif "OR-Tools" in solver_mode:
                 with st.spinner("🤖 正在构建数学模型并求解 (CP-SAT)..."):
