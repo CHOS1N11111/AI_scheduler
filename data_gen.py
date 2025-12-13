@@ -55,7 +55,7 @@ def generate_mock_data(
             
         # --- C. 决定课程的其他属性 ---
         # 实验课通常人数较少，理论课人数较多
-        size = random.randint(20, 60) if c_type == "lab" else random.randint(40, 110)
+        size = random.randint(20, 60) if c_type == "lab" else random.randint(40, 120)
         
         # 拼接课程名字（加上序号以区分）
         c_name = f"{base_name}_{i+1}"

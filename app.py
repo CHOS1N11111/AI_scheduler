@@ -66,6 +66,8 @@ with st.sidebar:
         rooms.append({"id": f"Lab_A{i+1}", "cap": cap_lab, "type": "lab"})
         
     st.caption(f"✅ 当前可用教室总数: {len(rooms)} 间")
+    # 将教室列表保存到 session_state，防止 Streamlit 交互导致局部变量丢失
+    st.session_state['rooms'] = rooms
     
     st.divider()
     
@@ -213,7 +215,8 @@ if start_btn:
         
         problem_data = {
             "metadata": {"times": times},
-            "rooms": rooms, 
+            # 优先使用 session_state 中的 rooms（更可靠跨重载）
+            "rooms": st.session_state.get('rooms', rooms), 
             "courses": st.session_state.courses_data 
         }
         
@@ -433,7 +436,11 @@ if st.session_state.schedule_results is not None:
             daily_util_df = pd.DataFrame(0.0, index=[r['id'] for r in rooms], columns=days_order)
 
             if not vis_df.empty:
-                for _, row in vis_df.iterrows():
+                # 【核心修复】先对 (Room, Time) 进行去重
+                # 解释：如果 Mon_08:00 同时有单周课和双周课，去重后只算作“该时段被占用 1 次”
+                unique_occupancy = vis_df[['Room', 'Time']].drop_duplicates()
+                
+                for _, row in unique_occupancy.iterrows():
                     t_str = row['Time']      # e.g. "Mon_08:00"
                     r_id = row['Room']       # e.g. "R101"
                     

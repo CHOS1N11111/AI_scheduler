@@ -37,6 +37,10 @@ class GreedySolver:
                 - courses: 课程列表
         """
         self.data = data
+        self.times = data["metadata"]["times"]
+        self.rooms = data["rooms"]
+        self.courses = data["courses"]
+        self.room_map = {r["id"]: r for r in self.rooms}  # 快速查询教室信息
         
     def solve(self):
         """
@@ -583,44 +587,40 @@ class CPSATSolver:
         linked_groups = collections.defaultdict(list)
         for c_idx, c in enumerate(self.courses):
             link_id = c.get("link_id")
-            if link_id:  # 只有有 link_id 的课才参与连堂
+            if link_id:
                 linked_groups[link_id].append(c_idx)
         
         for link_id, c_indices in linked_groups.items():
-            # 连堂通常是两门课一对
             if len(c_indices) == 2:
                 c1_idx, c2_idx = c_indices[0], c_indices[1]
                 
-                # 先添加"要么都排，要么都不排"的约束
+                # 要么都排，要么都不排
                 model.Add(is_scheduled[c1_idx] == is_scheduled[c2_idx])
                 
-                # 遍历所有时间和教室组合
-                for t_idx in range(len(self.times) - 1):  # -1 是因为需要 t+1
-                    # 检查是否跨天（每天5节课）
+                for t_idx in range(len(self.times) - 1):
                     day_idx = t_idx // 5
                     day_idx_next = (t_idx + 1) // 5
                     if day_idx != day_idx_next:
-                        continue  # 不同天，不能连堂
+                        continue 
                     
                     for r_idx in self.possible_rooms[c1_idx]:
                         if r_idx not in self.possible_rooms[c2_idx]:
-                            continue  # 两门课都要能用这个教室
+                            continue
                         
                         var_c1_t = x.get((c1_idx, t_idx, r_idx))
                         var_c2_t1 = x.get((c2_idx, t_idx + 1, r_idx))
                         
-                        if var_c1_t and var_c2_t1:
+                        # 【修复点】：必须使用 is not None 来判断变量是否存在
+                        if var_c1_t is not None and var_c2_t1 is not None:
                             # 逻辑：如果 c1 在 (t, r) 则 c2 必须在 (t+1, r)
                             model.Add(var_c2_t1 == 1).OnlyEnforceIf(var_c1_t)
-                            # 反向：如果 c2 在 (t+1, r) 则 c1 必须在 (t, r)
                             model.Add(var_c1_t == 1).OnlyEnforceIf(var_c2_t1)
+
             elif len(c_indices) > 2:
-                # 多于两门课的连堂，按顺序连接
-                # 首先所有课程要么都排要么都不排
+                # 多于两门课的连堂
                 for i in range(len(c_indices) - 1):
                     model.Add(is_scheduled[c_indices[i]] == is_scheduled[c_indices[i + 1]])
                 
-                # 然后施加连续性约束
                 for i in range(len(c_indices) - 1):
                     c_curr_idx = c_indices[i]
                     c_next_idx = c_indices[i + 1]
@@ -638,7 +638,8 @@ class CPSATSolver:
                             var_curr = x.get((c_curr_idx, t_idx, r_idx))
                             var_next = x.get((c_next_idx, t_idx + 1, r_idx))
                             
-                            if var_curr and var_next:
+                            # 【修复点】：同样使用 is not None
+                            if var_curr is not None and var_next is not None:
                                 model.Add(var_next == 1).OnlyEnforceIf(var_curr)
                                 model.Add(var_curr == 1).OnlyEnforceIf(var_next)
 
