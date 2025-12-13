@@ -48,7 +48,7 @@ def generate_mock_data(
             base_name = random.choice(lecture_names)
             
         # --- B. 决定周次模式 (All 全周 vs Odd 单周 vs Even 双周) ---
-        # 单双周课程可以在同一时间和地点与其他课程复用资源
+        ## 单双周课程可以在同一时间和地点与其他课程复用资源
         week_mode = "all"
         if random.random() < prob_odd_even:
             week_mode = random.choice(["odd", "even"])

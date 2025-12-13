@@ -230,7 +230,7 @@ class GASolver:
         
         返回值：
             (fitness, cost) 元组
-            - fitness: 适应度值，范围 [0, 1]，值越大越好
+            - fitness: 适应度值，范围在 [0, 1]，值越大越好
             - cost: 总惩罚成本，值越小越好
         """
         hard_pen = 0  # 硬约束违反次数

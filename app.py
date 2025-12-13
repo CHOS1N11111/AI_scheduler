@@ -56,6 +56,7 @@ with st.sidebar:
         num_lab = st.number_input("机房数量", value=3, min_value=0, help="计算机实验室")
         cap_lab = st.number_input("机房容量", value=60)
         
+        
     # 构建教室数据结构，包含ID、容量和类型信息
     rooms = []
     for i in range(num_multi):

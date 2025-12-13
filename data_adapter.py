@@ -5,6 +5,7 @@
 import pandas as pd
 import random
 
+
 def load_real_data(uploaded_file):
     """
     读取用户上传的 CSV/Excel 文件，并转换为排课系统的标准格式
