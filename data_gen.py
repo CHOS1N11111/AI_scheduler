@@ -23,7 +23,7 @@ def generate_mock_data(
     teachers = ["王教授", "李老师", "张助教", "赵教授", "刘老师", "陈博士", "杨讲师"]
     
     # 3. 专业/班级池 (新增)
-    all_majors = ["计科2301", "计科2302", "电气2301", "电气2302", "自动化2301", "AI2301"]
+    all_majors = ["计科2301", "计科2302", "电气2301", "电气2302", "自动化2301", "AI2301", "通信2301"]
     
     # 4. 课程模板库
     lecture_names = ["AI导论", "离散数学", "高等数学", "通信原理", "操作系统", "马克思原理", "英语写作"]
@@ -107,6 +107,7 @@ def generate_mock_data(
             teacher_blocks[teacher] = random.sample(times, num_blocked)
         else:
             teacher_blocks[teacher] = []
+
 
     # 返回标准格式
     return {

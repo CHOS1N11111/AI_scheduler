@@ -64,6 +64,7 @@ with st.sidebar:
         rooms.append({"id": f"R{101+i}", "cap": cap_multi, "type": "multimedia"})
     for i in range(num_lab):
         rooms.append({"id": f"Lab_A{i+1}", "cap": cap_lab, "type": "lab"})
+    ###
         
     st.caption(f"✅ 当前可用教室总数: {len(rooms)} 间")
     # 将教室列表保存到 session_state，防止 Streamlit 交互导致局部变量丢失
@@ -86,7 +87,7 @@ with st.sidebar:
         w_hard = st.number_input("硬约束权重", value=1000)  # 硬约束违反的惩罚权重
     elif "OR-Tools" in solver_mode:
         st.markdown("#### 🤖 求解参数")
-        cp_timeout = st.slider("最大求解时间 (秒)", 10, 60, 30)  # CP-SAT 求解器的时间限制
+        cp_timeout = st.slider("最大求解时间 (秒)", 10, 180, 30)  # CP-SAT 求解器的时间限制
 
 # =============================================
 # 3. 主界面：数据管理 (Data Management)
@@ -106,7 +107,7 @@ with st.container():
         with col_sim1:
             sim_count = st.slider("生成课程数量", 10, 100, 30, help="模拟多少个班级的课")
         with col_sim2:
-            sim_lab_ratio = st.slider("实验课比例 (机房需求)", 0.0, 1.0, 0.3, help="拉高此值测试机房压力")
+            sim_lab_ratio = st.slider("实验课比例 (机房需求)", 0.0, 1.0, 0.2, help="拉高此值测试机房压力")
         with col_sim3:
             sim_week_ratio = st.slider("单双周课程比例", 0.0, 1.0, 0.2, help="拉高此值测试时间复用能力")
             
@@ -411,7 +412,14 @@ if st.session_state.schedule_results is not None:
                     st.info("无收敛数据 (非GA算法或迭代过少)")
 
         # >>> Tab 3: 交互可视化 <<<
+        
         with tab_visual:
+            # === 新增保护代码 ===
+            if not result_schedule:
+                st.warning("⚠️ 暂无排课结果，无法显示可视化图表。请检查是否排课失败或未开始排课。")
+                st.stop() # 停止执行后续可视化代码
+            # ===================
+
             st.markdown("### 🔍 交互可视化：教室利用率与按对象查看")
             #times = [f"{d}_{t}" for d in ["Mon", "Tue", "Wed", "Thu", "Fri"] for t in ["08:00", "10:00", "14:00", "16:00", "19:00"]]
             
@@ -430,7 +438,11 @@ if st.session_state.schedule_results is not None:
                     'CourseName': c.get('name'),
                     'ClassGroups': c.get('class_groups', [])
                 })
-            vis_df = pd.DataFrame(vis_list)
+            vis_df = pd.DataFrame(
+                vis_list,
+                columns=["Time", "Room", "Teacher", "CourseName", "ClassGroups"]
+            )
+            #防止为空
 
             # 初始化 DataFrame: 行=教室, 列=周一到周五, 值=0.0
             daily_util_df = pd.DataFrame(0.0, index=[r['id'] for r in rooms], columns=days_order)
