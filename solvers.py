@@ -415,7 +415,7 @@ class CPSATSolver:
                 valid.append(r_idx)
             self.possible_rooms[c_idx] = valid
 
-    def solve(self, time_limit=30):
+    def solve(self, time_limit=60):
         """
         执行 CP-SAT 排课求解
         
