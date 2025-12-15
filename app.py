@@ -12,6 +12,7 @@ import plotly.express as px
 import io
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 # 配置 matplotlib 字体，支持中文显示
 matplotlib.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei']
@@ -34,7 +35,7 @@ def generate_schedule_excel(df_schedule):
     # 设置列宽
     ws.column_dimensions['A'].width = 15
     for col in range(2, len(df_schedule.columns) + 2):
-        ws.column_dimensions[chr(64 + col)].width = 20
+        ws.column_dimensions[get_column_letter(col)].width = 20
     
     # 写入表头
     header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
@@ -127,6 +128,31 @@ with st.sidebar:
         ["Greedy (贪心算法)", "Genetic Algorithm (进化算法)", "OR-Tools CP-SAT (精确建模)"],
         index=0  # 默认选择贪心算法
     )
+    # 标记当前选择的算法，用于文件命名
+    if "Greedy" in solver_mode:
+        algorithm_tag = "greedy"
+    elif "Genetic" in solver_mode:
+        algorithm_tag = "ga"
+    elif "OR-Tools" in solver_mode:
+        algorithm_tag = "cpsat"
+    else:
+        algorithm_tag = "algo"
+    # 统计两类教室数量，用于文件命名
+    room_counts = {"multimedia": 0, "lab": 0}
+    for r in st.session_state.get('rooms', rooms):
+        r_type = r.get("type")
+        if r_type in room_counts:
+            room_counts[r_type] += 1
+    room_config_tag = f"multi{room_counts['multimedia']}_lab{room_counts['lab']}"
+    # 标记当前选择的算法，用于文件命名
+    if "Greedy" in solver_mode:
+        algorithm_tag = "greedy"
+    elif "Genetic" in solver_mode:
+        algorithm_tag = "ga"
+    elif "OR-Tools" in solver_mode:
+        algorithm_tag = "cpsat"
+    else:
+        algorithm_tag = "algo"
     
     # 根据选择的算法显示对应的参数配置
     if "Genetic" in solver_mode:
@@ -386,7 +412,7 @@ if st.session_state.schedule_results is not None:
                 st.download_button(
                     label="📥 导出课表 Excel",
                     data=excel_data,
-                    file_name="schedule.xlsx",
+                    file_name=f"schedule_{room_config_tag}_{algorithm_tag}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
@@ -563,7 +589,7 @@ if st.session_state.schedule_results is not None:
                 st.download_button(
                     label="📊 下载热力图数据 (CSV)",
                     data=heatmap_csv,
-                    file_name="heatmap_data.csv",
+                    file_name=f"heatmap_data_{room_config_tag}_{algorithm_tag}.csv",
                     mime="text/csv"
                 )
             with col2:
@@ -597,7 +623,7 @@ if st.session_state.schedule_results is not None:
                 st.download_button(
                     label="🖼️ 下载热力图 (PNG)",
                     data=img_buffer.getvalue(),
-                    file_name="heatmap_image.png",
+                    file_name=f"heatmap_image_{room_config_tag}_{algorithm_tag}.png",
                     mime="image/png"
                 )
 
@@ -627,7 +653,7 @@ if st.session_state.schedule_results is not None:
                     st.download_button(
                         label="📥 下载该表格 (Excel)",
                         data=excel_data,
-                        file_name=f"teacher_{sel_t}_schedule.xlsx",
+                        file_name=f"teacher_{sel_t}_schedule_{room_config_tag}_{algorithm_tag}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
@@ -660,7 +686,7 @@ if st.session_state.schedule_results is not None:
                     st.download_button(
                         label="📥 下载该表格 (Excel)",
                         data=excel_data,
-                        file_name=f"class_{sel_cls}_schedule.xlsx",
+                        file_name=f"class_{sel_cls}_schedule_{room_config_tag}_{algorithm_tag}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
@@ -683,7 +709,6 @@ if st.session_state.schedule_results is not None:
                     st.download_button(
                         label="📥 下载该表格 (Excel)",
                         data=excel_data,
-                        file_name=f"room_{sel_r}_schedule.xlsx",
+                        file_name=f"room_{sel_r}_schedule_{room_config_tag}_{algorithm_tag}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
-
