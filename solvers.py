@@ -737,7 +737,7 @@ class CPSATSolver:
         # --- 第四步：调用求解器求解 ---
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = time_limit
-        status = solver.Solve(model)
+        status = solver.Solve(model) #
         
         # --- 第五步：处理求解结果 ---
         if status in [cp_model.OPTIMAL, cp_model.FEASIBLE]:

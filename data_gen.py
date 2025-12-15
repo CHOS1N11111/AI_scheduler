@@ -6,7 +6,7 @@ import random
 
 def generate_mock_data(
     num_courses=30, 
-    prob_lab=0.3,      # 实验课比例 (0.0 - 1.0)
+    prob_lab=0.2,      # 实验课比例 (0.0 - 1.0)
     prob_odd_even=0.2  # 单双周课程比例 (0.0 - 1.0)
 ):
     """
@@ -61,11 +61,11 @@ def generate_mock_data(
         c_name = f"{base_name}_{i+1}"
         
         # --- D. 随机分配该课程适用的班级（行政班级不冲突约束） ---
-        # 随机决定该课程有多少个班级需要参加（0.6概率1班，0.2概率2班，0.2概率3班）
+        # 随机决定该课程有多少个班级需要参加（0.5概率1班，0.3概率2班，0.2概率3班）
         r = random.random()
-        if r < 0.6:
+        if r < 0.5:
             num_classes = 1
-        elif r < 0.8:
+        elif r < 0.7:
             num_classes = 2
         else:
             num_classes = 3

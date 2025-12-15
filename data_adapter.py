@@ -4,35 +4,79 @@
 # ==========================================
 import pandas as pd
 import uuid
+import re
 
 def parse_chinese_time_constraint(text):
     """
-    解析中文时间限制，例如 "周三08:00-10:00不可用" -> ["Wed_08:00"]
-    假设系统标准时间槽为: 08:00, 10:00, 14:00, 16:00, 19:00
+    支持两类输入：
+      1) 明确时间段：周三08:00-10:00不可用 / 周三 08:00-10:00 不可用
+      2) 语义时间段：周三上午不可用 / 周三下午不可用 / 周三晚上不可用
+
+    输出：标准时间槽列表，例如 ["Wed_08:00", "Wed_14:00"]
+    系统标准时间槽：08:00, 10:00, 14:00, 16:00, 19:00
     """
     if not text or str(text) == "nan" or "无" in str(text):
         return []
 
-    # 星期映射
+    s = str(text).strip()
+
     week_map = {
-        "周一": "Mon", "周二": "Tue", "周三": "Wed", 
+        "周一": "Mon", "周二": "Tue", "周三": "Wed",
         "周四": "Thu", "周五": "Fri", "周六": "Sat", "周日": "Sun"
     }
-    
-    # 简单解析逻辑 (根据你的数据特征定制)
-    # 示例格式: "周三08:00-10:00不可用"
-    blocked_slots = []
-    
-    for cn_day, en_day in week_map.items():
-        if cn_day in text:
-            # 提取时间部分 (简单匹配)
-            if "08:00" in text: blocked_slots.append(f"{en_day}_08:00")
-            if "10:00" in text: blocked_slots.append(f"{en_day}_10:00")
-            if "14:00" in text: blocked_slots.append(f"{en_day}_14:00")
-            if "16:00" in text: blocked_slots.append(f"{en_day}_16:00")
-            if "19:00" in text: blocked_slots.append(f"{en_day}_19:00")
-            
-    return blocked_slots
+
+    # 语义时间段 -> 对应“开始时间槽”
+    # 你说“下午不可用有两个不可用区间”，这里按 14:00 和 16:00 两节处理
+    semantic_to_slots = {
+        "上午": ["08:00", "10:00"],
+        "下午": ["14:00", "16:00"],
+        "晚上": ["19:00"],
+        "晚间": ["19:00"],
+    }
+
+    # 标准时间槽
+    std_slots = ["08:00", "10:00", "14:00", "16:00", "19:00"]
+
+    blocked = set()
+
+    # 先按常见分隔符切片，支持 “； ; 、 , ， 换行”
+    parts = re.split(r"[；;、,\n\r]+", s)
+
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+
+        # 找到对应星期（一个 part 里可能只写了一个星期）
+        hit_days = [cn for cn in week_map.keys() if cn in part]
+        if not hit_days:
+            continue
+
+        for cn_day in hit_days:
+            en_day = week_map[cn_day]
+
+            # (A) 语义：上午/下午/晚上不可用
+            for key, slots in semantic_to_slots.items():
+                if key in part and ("不可用" in part or "不排" in part or "禁排" in part):
+                    for t in slots:
+                        blocked.add(f"{en_day}_{t}")
+
+            # (B) 明确时间：直接抓出所有出现的标准时间点
+            # 例如 “周三08:00-10:00不可用” 会包含 08:00 和 10:00
+            for t in std_slots:
+                if t in part:
+                    blocked.add(f"{en_day}_{t}")
+
+    # 返回稳定顺序（按周/按时间排序）
+    day_order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    time_order = {t: i for i, t in enumerate(std_slots)}
+
+    def sort_key(x):
+        d, t = x.split("_", 1)
+        return (day_order.index(d) if d in day_order else 999,
+                time_order.get(t, 999))
+
+    return sorted(blocked, key=sort_key)
 
 def load_real_data(uploaded_file):
     try:
@@ -45,12 +89,12 @@ def load_real_data(uploaded_file):
         col_map = {
             "name": "课程名称",
             "teacher": "教师",
-            "size": "学生人数限制",      # 变更
+            "size": "学生人数限制",      #  可选
             "type": "教室类型",
             "weeks": "周次",
-            "major": "学生专业限制",     # 变更
+            "major": "学生专业限制",     # 专业班级限制
             "link": "连课",             # 变更
-            "block": "教师时间限制"      # 变更
+            "block": "教师时间限制"      # 变更 支持多种表述
         }
         
         # 周次值的映射
