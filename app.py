@@ -9,6 +9,9 @@ import time
 import matplotlib.pyplot as plt
 import matplotlib
 import plotly.express as px
+import io
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 # 配置 matplotlib 字体，支持中文显示
 matplotlib.rcParams['font.sans-serif'] = ['Microsoft YaHei', 'SimHei']
@@ -18,6 +21,52 @@ matplotlib.rcParams['axes.unicode_minus'] = False
 from data_adapter import load_real_data, generate_empty_template  # 数据导入和模板生成
 from data_gen import generate_mock_data  # 模拟数据生成
 from solvers import GreedySolver, GASolver, CPSATSolver  # 三种排课算法求解器
+
+# =============================================
+# 0. 辅助函数：生成 Excel 文件（支持中文）
+# =============================================
+def generate_schedule_excel(df_schedule):
+    """将课表 DataFrame 转换为 Excel 字节流（支持中文编码）"""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "课表"
+    
+    # 设置列宽
+    ws.column_dimensions['A'].width = 15
+    for col in range(2, len(df_schedule.columns) + 2):
+        ws.column_dimensions[chr(64 + col)].width = 20
+    
+    # 写入表头
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    for col_idx, col_name in enumerate(df_schedule.columns, 1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.value = col_name
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = border
+    
+    # 写入数据
+    for row_idx, row in enumerate(df_schedule.values, 2):
+        for col_idx, value in enumerate(row, 1):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            cell.value = value
+            cell.border = border
+            cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+    
+    # 保存为字节流
+    excel_buffer = io.BytesIO()
+    wb.save(excel_buffer)
+    excel_buffer.seek(0)
+    return excel_buffer.getvalue()
 
 # =============================================
 # 1. 页面全局配置
@@ -331,7 +380,15 @@ if st.session_state.schedule_results is not None:
                     return style
 
                 st.dataframe(pivot.style.applymap(highlight_cells), height=600, use_container_width=True)
-                st.download_button("📥 导出课表 Excel", df_res.to_csv().encode('utf-8'), "schedule.csv")
+                
+                # 生成 Excel 文件下载
+                excel_data = generate_schedule_excel(df_res)
+                st.download_button(
+                    label="📥 导出课表 Excel",
+                    data=excel_data,
+                    file_name="schedule.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
         # >>> Tab 2: 算法分析 <<<
         with tab_analysis:
@@ -498,6 +555,52 @@ if st.session_state.schedule_results is not None:
             # 在 Streamlit 中展示
             st.plotly_chart(fig, use_container_width=True)
 
+            # 热力图下载功能
+            col1, col2 = st.columns(2)
+            with col1:
+                # 下载热力图数据为 CSV
+                heatmap_csv = daily_util_df.to_csv(index=True).encode('utf-8')
+                st.download_button(
+                    label="📊 下载热力图数据 (CSV)",
+                    data=heatmap_csv,
+                    file_name="heatmap_data.csv",
+                    mime="text/csv"
+                )
+            with col2:
+                # 下载热力图为 PNG 图片
+                heatmap_fig = plt.figure(figsize=(12, max(5, len(rooms) * 0.6)))
+                ax = heatmap_fig.add_subplot(111)
+                im = ax.imshow(daily_util_df.values, cmap='YlGnBu', aspect='auto', vmin=0, vmax=1)
+                ax.set_xticks(range(len(days_order)))
+                ax.set_xticklabels(days_order, fontproperties='SimHei')
+                ax.set_yticks(range(len(daily_util_df)))
+                ax.set_yticklabels(daily_util_df.index)
+                ax.set_title("教室资源利用率热力图", fontproperties='SimHei', fontsize=14, fontweight='bold')
+                ax.set_xlabel("星期", fontproperties='SimHei')
+                ax.set_ylabel("教室 ID", fontproperties='SimHei')
+                
+                # 添加数值标签
+                for i in range(len(daily_util_df)):
+                    for j in range(len(days_order)):
+                        text = ax.text(j, i, f'{daily_util_df.values[i, j]:.2f}',
+                                      ha="center", va="center", color="black", fontsize=9)
+                
+                plt.colorbar(im, ax=ax, label='利用率 (0-1)')
+                plt.tight_layout()
+                
+                # 保存为图片
+                img_buffer = io.BytesIO()
+                heatmap_fig.savefig(img_buffer, format='png', dpi=100, bbox_inches='tight')
+                img_buffer.seek(0)
+                plt.close(heatmap_fig)
+                
+                st.download_button(
+                    label="🖼️ 下载热力图 (PNG)",
+                    data=img_buffer.getvalue(),
+                    file_name="heatmap_image.png",
+                    mime="image/png"
+                )
+
             st.divider()
 
             # --- 交互区域 ---
@@ -516,7 +619,17 @@ if st.session_state.schedule_results is not None:
                 if fdf.empty:
                     st.info('无数据')
                 else:
-                    st.table(fdf.pivot_table(index='Time', columns='Room', values='CourseName', aggfunc=lambda x: ' || '.join(x)).reindex(times).fillna('-'))
+                    table_df = fdf.pivot_table(index='Time', columns='Room', values='CourseName', aggfunc=lambda x: ' || '.join(x)).reindex(times).fillna('-')
+                    st.table(table_df)
+                    
+                    # 添加下载按钮
+                    excel_data = generate_schedule_excel(table_df.reset_index())
+                    st.download_button(
+                        label="📥 下载该表格 (Excel)",
+                        data=excel_data,
+                        file_name=f"teacher_{sel_t}_schedule.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
             elif view_mode == '按行政班级查看':
                 # 收集所有行政班级（兼容字符串/列表形式）
@@ -539,7 +652,17 @@ if st.session_state.schedule_results is not None:
                 if fdf.empty:
                     st.info('该班级暂无排课')
                 else:
-                    st.table(fdf.pivot_table(index='Time', columns='Room', values='CourseName', aggfunc=lambda x: ' || '.join(x)).reindex(times).fillna('-'))
+                    table_df = fdf.pivot_table(index='Time', columns='Room', values='CourseName', aggfunc=lambda x: ' || '.join(x)).reindex(times).fillna('-')
+                    st.table(table_df)
+                    
+                    # 添加下载按钮
+                    excel_data = generate_schedule_excel(table_df.reset_index())
+                    st.download_button(
+                        label="📥 下载该表格 (Excel)",
+                        data=excel_data,
+                        file_name=f"class_{sel_cls}_schedule.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
             else: # 按教室
                 room_ids = [r['id'] for r in rooms]
@@ -552,5 +675,15 @@ if st.session_state.schedule_results is not None:
                 if fdf.empty:
                     st.info('无数据')
                 else:
-                    st.table(fdf.pivot_table(index='Time', columns='Room', values='CourseName', aggfunc=lambda x: ' || '.join(x)).reindex(times).fillna('-'))
+                    table_df = fdf.pivot_table(index='Time', columns='Room', values='CourseName', aggfunc=lambda x: ' || '.join(x)).reindex(times).fillna('-')
+                    st.table(table_df)
+                    
+                    # 添加下载按钮
+                    excel_data = generate_schedule_excel(table_df.reset_index())
+                    st.download_button(
+                        label="📥 下载该表格 (Excel)",
+                        data=excel_data,
+                        file_name=f"room_{sel_r}_schedule.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
 
