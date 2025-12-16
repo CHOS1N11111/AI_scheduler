@@ -91,7 +91,7 @@ def load_real_data(uploaded_file):
             "teacher": "教师",
             "size": "学生人数限制",      #  可选
             "type": "教室类型",
-            "weeks": "周次",
+            "weeks": "周次",            # 单双周
             "major": "学生专业限制",     # 专业班级限制
             "link": "连课",             # 变更
             "block": "教师时间限制"      # 变更 支持多种表述
@@ -116,7 +116,7 @@ def load_real_data(uploaded_file):
             # 教室类型处理
             raw_type = str(row.get(col_map["type"], "multimedia"))
             
-            # 【修复】先排除"非"字，再判断"实验"或"机房"
+            # 先排除"非"字，再判断"实验"或"机房"
             if "非" in raw_type:
                 c_type = "multimedia"
             elif "实验" in raw_type or "机房" in raw_type:

@@ -524,7 +524,7 @@ class CPSATSolver:
                     model.Add(sum(vars_all) + sum(vars_odd) <= 1)
                     model.Add(sum(vars_all) + sum(vars_even) <= 1)
 
-        # (B+) [新增] 班级/专业不冲突约束（需求6&7）
+        # (B+) 班级/专业不冲突约束（需求6&7）
         # 同一专业的学生在同一时间只能上一门课
         major_to_courses = collections.defaultdict(list)
         for c_idx, c in enumerate(self.courses):
@@ -578,7 +578,7 @@ class CPSATSolver:
                     model.Add(sum(t_vars_all) + sum(t_vars_odd) <= 1)
                     model.Add(sum(t_vars_all) + sum(t_vars_even) <= 1)
         
-        # (C+) [新增] 连堂约束（需求9）
+        # (C+) 连堂约束（需求9）
         # 相同 link_id 的课程必须连续排课（同教室，且时间为 t 和 t+1）
         linked_groups = collections.defaultdict(list)
         for c_idx, c in enumerate(self.courses):
@@ -644,7 +644,7 @@ class CPSATSolver:
 
         # --- 第三步：定义目标函数 ---
         # 目标：最大化排课数量 - 软约束惩罚
-        BIG_W = 10000  # 大权重，确保排课数优先
+        BIG_W = 10000  # 给定大权重，确保排课数优先
 
         # --- 专业-时间占用指示符 y_major_t ---
         # y_major_time[(major, t_idx)] == 1 表示该专业在该时间段有课程
