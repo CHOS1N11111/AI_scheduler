@@ -440,7 +440,7 @@ class CPSATSolver:
             # 创建是否排课的标记变量
             is_scheduled[c_idx] = model.NewBoolVar(f'scheduled_{c_idx}')
             
-            # [新增] 获取该课程教师的禁排时间
+            # 获取该课程教师的禁排时间
             teacher_blocks = self.courses[c_idx].get("blocked_hours", [])
             
             # 只为合法的教室创建变量 (Sparse Modeling)
@@ -448,14 +448,14 @@ class CPSATSolver:
                 for t_idx in range(len(self.times)):
                     t_str = self.times[t_idx]
                     
-                    # [新增] 检查是否被禁排（需求8：教师时间约束）
+                    # 检查是否被禁排（需求8：教师时间约束）
                     if t_str in teacher_blocks:
                         continue  # 跳过创建变量，该时间点无法排课
                     
                     # 创建该课程、时间、教室的排课变量
                     x[(c_idx, t_idx, r_idx)] = model.NewBoolVar(f'x_{c_idx}_{t_idx}_{r_idx}')
             
-            # [新增] 防守性约束：如果某课程完全没有变量（所有时间都被禁排），无法排课
+            # 防守性约束：如果某课程完全没有变量（所有时间都被禁排），无法排课
             has_any_var = False
             for r_idx in self.possible_rooms[c_idx]:
                 for t_idx in range(len(self.times)):

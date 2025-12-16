@@ -22,7 +22,7 @@ def generate_mock_data(
     # 2. 教师库
     teachers = ["王教授", "李老师", "张助教", "赵教授", "刘老师", "陈博士", "杨讲师"]
     
-    # 3. 专业/班级池 (新增)
+    # 3. 专业/班级池
     all_majors = ["计科2301", "计科2302", "电气2301", "电气2302", "自动化2301", "AI2301", "通信2301"]
     
     # 4. 课程模板库
@@ -31,7 +31,7 @@ def generate_mock_data(
 
     courses = []
     
-    # 模拟教师忙碌时间 (新增)
+    # 模拟教师忙碌时间
     # key: teacher_name, val: list of blocked times ["Mon_08:00", ...]
     teacher_blocks = {}
     
@@ -112,7 +112,7 @@ def generate_mock_data(
     # 返回标准格式
     return {
         "metadata": {"times": times},
-        # 注意：这里只返回课程，教室数据由前端 Sidebar 配置决定
+        # 这里只返回课程，教室数据由前端 Sidebar 配置决定
         "courses": courses,
         "teacher_blocks": teacher_blocks  # 新增: 教师忙碌时间约束
     }
