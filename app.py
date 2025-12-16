@@ -137,6 +137,7 @@ with st.sidebar:
         algorithm_tag = "cpsat"
     else:
         algorithm_tag = "algo"
+    
     # 统计两类教室数量，用于文件命名
     room_counts = {"multimedia": 0, "lab": 0}
     for r in st.session_state.get('rooms', rooms):
@@ -144,6 +145,7 @@ with st.sidebar:
         if r_type in room_counts:
             room_counts[r_type] += 1
     room_config_tag = f"multi{room_counts['multimedia']}_lab{room_counts['lab']}"
+
     # 标记当前选择的算法，用于文件命名
     if "Greedy" in solver_mode:
         algorithm_tag = "greedy"
@@ -268,7 +270,7 @@ col_btn, col_info = st.columns([1, 4])
 with col_btn:
     start_btn = st.button("开始排课", type="primary", use_container_width=True)
 
-# --- 修改点 1: 初始化结果状态 ---
+# --- 初始化结果状态 ---
 if 'schedule_results' not in st.session_state:
     st.session_state.schedule_results = None
 if 'schedule_msg' not in st.session_state:
@@ -349,7 +351,7 @@ if start_btn:
             import traceback
             st.code(traceback.format_exc())
 
-# --- 修改点 3: 展示逻辑不再依赖按钮，而是依赖是否有结果 ---
+# --- 展示逻辑不再依赖按钮，而是依赖是否有结果 ---
 if st.session_state.schedule_results is not None:
     result_schedule = st.session_state.schedule_results
     msg_text = st.session_state.schedule_msg
@@ -497,7 +499,7 @@ if st.session_state.schedule_results is not None:
         # >>> Tab 3: 交互可视化 <<<
         
         with tab_visual:
-            # === 新增保护代码 ===
+            # === 保护代码 ===
             if not result_schedule:
                 st.warning("⚠️ 暂无排课结果，无法显示可视化图表。请检查是否排课失败或未开始排课。")
                 st.stop() # 停止执行后续可视化代码
@@ -525,13 +527,13 @@ if st.session_state.schedule_results is not None:
                 vis_list,
                 columns=["Time", "Room", "Teacher", "CourseName", "ClassGroups"]
             )
-            #防止为空
+            # 防止为空
 
             # 初始化 DataFrame: 行=教室, 列=周一到周五, 值=0.0
             daily_util_df = pd.DataFrame(0.0, index=[r['id'] for r in rooms], columns=days_order)
 
             if not vis_df.empty:
-                # 【核心修复】先对 (Room, Time) 进行去重
+                # 先对 (Room, Time) 进行去重
                 # 解释：如果 Mon_08:00 同时有单周课和双周课，去重后只算作“该时段被占用 1 次”
                 unique_occupancy = vis_df[['Room', 'Time']].drop_duplicates()
                 
@@ -575,7 +577,7 @@ if st.session_state.schedule_results is not None:
                 height=max(400, len(rooms) * 40) # 动态高度：根据教室数量自动变长
             )
             
-            # 将 X 轴标签移到顶部 (可选，如果不喜欢可以注释掉这一行)
+            # 将 X 轴标签移到顶部 
             fig.update_xaxes(side="top")
 
             # 在 Streamlit 中展示
@@ -653,7 +655,7 @@ if st.session_state.schedule_results is not None:
                     st.download_button(
                         label="📥 下载该表格 (Excel)",
                         data=excel_data,
-                        file_name=f"teacher_{sel_t}_schedule_{room_config_tag}_{algorithm_tag}.xlsx",
+                        file_name=f"teacher_{sel_t}_schedule_{algorithm_tag}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
@@ -686,7 +688,7 @@ if st.session_state.schedule_results is not None:
                     st.download_button(
                         label="📥 下载该表格 (Excel)",
                         data=excel_data,
-                        file_name=f"class_{sel_cls}_schedule_{room_config_tag}_{algorithm_tag}.xlsx",
+                        file_name=f"class_{sel_cls}_schedule_{algorithm_tag}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
 
@@ -709,6 +711,7 @@ if st.session_state.schedule_results is not None:
                     st.download_button(
                         label="📥 下载该表格 (Excel)",
                         data=excel_data,
-                        file_name=f"room_{sel_r}_schedule_{room_config_tag}_{algorithm_tag}.xlsx",
+                        file_name=f"room_{sel_r}_schedule_{algorithm_tag}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
+
